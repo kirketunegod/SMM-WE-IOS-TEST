@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    runs-on: macos-15 # Updated to the latest stable macOS environment
+    runs-on: macos-15
 
     steps:
     - name: Checkout Source Code
@@ -16,7 +16,6 @@ jobs:
     - name: Set up GameMaker Igor Compiler
       uses: bscotch/igor-setup@v1
       with:
-        # We target your specific yyp file so it fetches the correct runtime version automatically
         target-yyp: 'SMM_WE.yyp' 
 
     - name: Compile iOS Project
@@ -25,6 +24,10 @@ jobs:
         project-path: 'SMM_WE.yyp'
         target: 'ios'
         command: 'package'
+        username: ${{ secrets.GM_USERNAME }}
+        password: ${{ secrets.GM_PASSWORD }}
+        # Forces Xcode to bundle the app without demanding a premium Apple ID profile
+        xcode-arguments: 'CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=""'
 
     - name: Upload Finished IPA
       uses: actions/upload-artifact@v4
@@ -33,4 +36,3 @@ jobs:
         path: |
           **/*.ipa
           **/*.xcarchive
-
