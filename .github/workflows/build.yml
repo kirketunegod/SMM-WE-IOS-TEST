@@ -22,23 +22,26 @@ jobs:
           "will_login": true
         }' > ~/.config/GameMakerStudio2/local_settings.json
 
-    - name: Instalar GameMaker Oficial vía Homebrew
+    - name: Descargar y Descomprimir Runtime Oficial
       run: |
-        brew install --cask gamemaker
-
-    - name: Descargar Runtime de Compilación
-      run: |
-        # Ejecutamos la aplicación de GameMaker en modo headless para que inicie sesión y descargue el compilador Igor
-        /Applications/GameMaker.app/Contents/MacOS/GameMaker \
-          --headless \
-          --user-settings ~/.config/GameMakerStudio2/local_settings.json \
-          --runtime-install "2024.6.1.208"
+        # Creamos nuestra propia carpeta para el compilador
+        mkdir -p ${{ github.workspace }}/gm_runtime
+        
+        # Descargamos el archivo ZIP del runtime oficial directo desde los servidores de YoYo Games
+        curl -L -o runtime.zip "https://gamemaker.io"
+        
+        # Descomprimimos el entorno de desarrollo en nuestra carpeta
+        unzip -q runtime.zip -d ${{ github.workspace }}/gm_runtime
 
     - name: Compilar Proyecto iOS con Xcode
       run: |
-        # Usamos la ruta universal de runtimes compartidos en macOS
-        /Users/Shared/GameMakerStudio2/Cache/runtimes/runtime-2024.6.1.208/bin/igor/osx/arm64/Igor \
+        # Damos permisos de ejecución al ejecutable de Igor que acabamos de descargar
+        chmod +x ${{ github.workspace }}/gm_runtime/bin/igor/osx/arm64/Igor
+        
+        # Ejecutamos Igor directamente desde nuestra ruta controlada
+        ${{ github.workspace }}/gm_runtime/bin/igor/osx/arm64/Igor \
         --uf ~/.config/GameMakerStudio2 \
+        --rp "${{ github.workspace }}/gm_runtime" \
         --project "${{ github.workspace }}/SMM_WE.yyp" \
         --config "Default" \
         --platform "iOS" \
