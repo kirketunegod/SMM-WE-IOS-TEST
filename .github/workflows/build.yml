@@ -20,13 +20,13 @@ jobs:
         echo "access key length: ${#KEY}"
         if [ -z "$KEY" ]; then echo "GM_ACCESS_KEY is empty or missing"; exit 1; fi
 
-        - name: Set up Igor and GameMaker runtime
+    - name: Set up Igor and GameMaker runtime
       id: setup
       uses: bscotch/igor-setup@v2
       with:
         access-key: ${{ secrets.GM_ACCESS_KEY }}
         target-yyp: SMM_WE.yyp
-        
+
     - name: Export Xcode project from GameMaker
       id: build
       uses: bscotch/igor-build@v1
