@@ -10,58 +10,57 @@ jobs:
     runs-on: macos-15
 
     steps:
-    - name: Checkout Source Code
+    - name: Checkout
       uses: actions/checkout@v4
 
-    - name: Configurar Credenciales de GameMaker
-      run: |
-        mkdir -p ~/.config/GameMakerStudio2
-        echo '{
-          "login": "${{ secrets.GM_USERNAME }}",
-          "password": "${{ secrets.GM_PASSWORD }}",
-          "will_login": true
-        }' > ~/.config/GameMakerStudio2/local_settings.json
+    - name: Set up Igor and GameMaker runtime
+      id: setup
+      uses: bscotch/igor-setup@v1
+      with:
+        access-key: ${{ secrets.GM_ACCESS_KEY }}
+        target-yyp: SMM_WE.yyp
+        cache: 'true'
 
-    - name: Descargar Runtime Oficial Forzando Cabeceras Reales
-      run: |
-        # Creamos nuestra propia carpeta local en el repositorio para no depender del sistema
-        mkdir -p ${{ github.workspace }}/runtime_core
-        
-        # Descargamos el ZIP oficial camuflando la petición como un navegador Safari real en macOS 
-        # Esto destruye el bloqueo 403 del servidor de YoYo Games
-        curl -H "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15" \
-             -H "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8" \
-             -L -o runtime_ios.zip "https://gamemaker.io"
-        
-        # Descomprimimos el paquete directamente en nuestra ruta controlada
-        unzip -q runtime_ios.zip -d ${{ github.workspace }}/runtime_core
+    - name: Export Xcode project from GameMaker
+      id: build
+      uses: bscotch/igor-build@v1
+      with:
+        user-dir: ${{ steps.setup.outputs.user-dir }}
+        yyp-path: SMM_WE.yyp
+        platform: ios
+        config: Default
+        save-logs: 'true'
 
-    - name: Compilar Proyecto iOS con Xcode Nactivo
+    - name: Build unsigned app with xcodebuild
       run: |
-        # Buscamos de forma estricta el binario de Igor dentro del ZIP que acabamos de extraer en nuestra carpeta
-        REAL_IGOR=$(find ${{ github.workspace }}/runtime_core -name "Igor" -type f | head -n 1)
-        REAL_RUNTIME_DIR=$(dirname $(dirname $(dirname $(dirname "$REAL_IGOR"))))
-        
-        echo "Binario Igor localizado en de forma segura en: $REAL_IGOR"
-        echo "Carpeta Base del Runtime: $REAL_RUNTIME_DIR"
-        
-        # Le otorgamos permisos de ejecución al ejecutable de UNIX
-        chmod +x "$REAL_IGOR"
-        
-        # Lanzamos el empaquetado del archivo SMM_WE.yyp
-        "$REAL_IGOR" \
-          --uf ~/.config/GameMakerStudio2 \
-          --rp "$REAL_RUNTIME_DIR" \
-          --project "${{ github.workspace }}/SMM_WE.yyp" \
-          --config "Default" \
-          --platform "iOS" \
-          --Package \
-          -- xcode-arguments 'CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=""'
+        XCPROJ=$(find "${{ steps.build.outputs.out-dir }}" -name "*.xcodeproj" -maxdepth 3 | head -n 1)
+        echo "Xcode project: $XCPROJ"
+        xcodebuild -list -project "$XCPROJ"
+        SCHEME=$(xcodebuild -list -json -project "$XCPROJ" | python3 -c "import sys,json; print(json.load(sys.stdin)['project']['schemes'][0])")
+        echo "Scheme: $SCHEME"
 
-    - name: Subir Archivo IPA Terminado
+        xcodebuild -project "$XCPROJ" \
+          -scheme "$SCHEME" \
+          -configuration Release \
+          -sdk iphoneos \
+          -derivedDataPath "$RUNNER_TEMP/dd" \
+          CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+          build
+
+        APP=$(find "$RUNNER_TEMP/dd/Build/Products" -name "*.app" -maxdepth 3 | head -n 1)
+        mkdir -p "$GITHUB_WORKSPACE/out/Payload"
+        cp -R "$APP" "$GITHUB_WORKSPACE/out/Payload/"
+        cd "$GITHUB_WORKSPACE/out" && zip -qr game-unsigned.ipa Payload
+
+    - name: Upload IPA
       uses: actions/upload-artifact@v4
       with:
         name: ios-build-ipa
-        path: |
-          **/*.ipa
-          **/*.xcarchive
+        path: out/*.ipa
+
+    - name: Upload Igor logs
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: igor-logs
+        path: ${{ steps.build.outputs.log-dir }}
