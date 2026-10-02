@@ -15,7 +15,7 @@ jobs:
 
     - name: Configurar Credenciales de GameMaker
       run: |
-        # Creamos la ruta física para inyectar tus secrets en el compilador
+        # Creamos la carpeta de preferencias del sistema para meter tus datos de inicio de sesión
         mkdir -p ~/.config/GameMakerStudio2
         echo '{
           "login": "${{ secrets.GM_USERNAME }}",
@@ -23,26 +23,23 @@ jobs:
           "will_login": true
         }' > ~/.config/GameMakerStudio2/local_settings.json
 
-    - name: Set up GameMaker Igor Compiler
-      uses: bscotch/igor-setup@v1
-      with:
-        # Apuntamos a tu archivo para que lea la versión interna
-        target-yyp: 'SMM_WE.yyp' 
-        # Forzamos los parámetros del archivo local_settings creado arriba
-        local-settings-override-file: '~/.config/GameMakerStudio2/local_settings.json'
+    - name: Instalar GameMaker Oficial vía Homebrew
+      run: |
+        # Homebrew es el gestor de paquetes oficial de Mac. Descarga la versión completa estable directamente.
+        brew install --cask gamemaker
 
-    - name: Compile iOS Project
-      uses: bscotch/igor-build@v1
-      with:
-        project-path: 'SMM_WE.yyp'
-        target: 'ios'
-        command: 'package'
-        # Pasamos el inicio de sesión nativo requerido en la compilación
-        username: ${{ secrets.GM_USERNAME }}
-        password: ${{ secrets.GM_PASSWORD }}
-        xcode-arguments: 'CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=""'
+    - name: Compilar Proyecto iOS con Xcode
+      run: |
+        # Buscamos el ejecutable Igor dentro de la app oficial ya instalada
+        /Applications/GameMaker.app/Contents/MacOS/Igor \
+        --uf ~/.config/GameMakerStudio2 \
+        --project "${{ github.workspace }}/SMM_WE.yyp" \
+        --config "Default" \
+        --platform "iOS" \
+        --Package \
+        -- xcode-arguments 'CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=""'
 
-    - name: Upload Finished IPA
+    - name: Subir Archivo IPA Terminado
       uses: actions/upload-artifact@v4
       with:
         name: ios-build-ipa
