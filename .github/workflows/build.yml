@@ -65,8 +65,9 @@ jobs:
         path: out/*.ipa
 
     - name: Upload Igor logs
-      if: always()
+      if: always() && steps.build.outputs.log-dir != ''
       uses: actions/upload-artifact@v4
       with:
         name: igor-logs
         path: ${{ steps.build.outputs.log-dir }}
+        if-no-files-found: ignore
