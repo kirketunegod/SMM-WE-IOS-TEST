@@ -26,10 +26,18 @@ jobs:
       run: |
         brew install --cask gamemaker
 
+    - name: Descargar Runtime de Compilación
+      run: |
+        # Ejecutamos la aplicación de GameMaker en modo headless para que inicie sesión y descargue el compilador Igor
+        /Applications/GameMaker.app/Contents/MacOS/GameMaker \
+          --headless \
+          --user-settings ~/.config/GameMakerStudio2/local_settings.json \
+          --runtime-install "2024.6.1.208"
+
     - name: Compilar Proyecto iOS con Xcode
       run: |
-        # Usamos la ruta moderna del ejecutable Igor en las versiones actuales de Mac
-        /Applications/GameMaker.app/Contents/Frameworks/Igor.framework/Versions/Current/Helpers/Igor \
+        # Usamos la ruta universal de runtimes compartidos en macOS
+        /Users/Shared/GameMakerStudio2/Cache/runtimes/runtime-2024.6.1.208/bin/igor/osx/arm64/Igor \
         --uf ~/.config/GameMakerStudio2 \
         --project "${{ github.workspace }}/SMM_WE.yyp" \
         --config "Default" \
