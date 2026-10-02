@@ -1,0 +1,41 @@
+name: Build iOS IPA
+
+on:
+  push:
+    branches: [ main, master ] # Triggers when you push to main or master
+  workflow_dispatch: # Allows you to trigger the build manually
+
+jobs:
+  build:
+    runs-on: macos-14 # Uses GitHub's free virtual Mac servers
+
+    steps:
+    - name: Checkout Source Code
+      uses: actions/checkout@v4
+
+    - name: Set up GameMaker Command Line
+      uses: YoYoGames/gamemaker-gh-actions-setup@v1
+      with:
+        # Note: You need a GameMaker license that supports iOS export
+        gamemaker-version: '2024.6.1.161' # Change to your GM version if needed
+
+    - name: Compile iOS Project
+      run: |
+        # Igor is GameMaker's command-line building tool
+        # This compiles your game specifically for the iOS platform
+        /Users/runner/Library/Application\ Support/GameMakerStudio2/Cache/runtimes/bin/Igor.exe \
+        --uf /Users/runner/.config/GameMakerStudio2 \
+        --rp /Users/runner/Library/Application\ Support/GameMakerStudio2/Cache/runtimes \
+        --project "${{ github.workspace }}/SMM_WE.yyp" \
+        --config "Default" \
+        --target "Mac" \
+        --platform "iOS" \
+        --Package
+
+    - name: Upload Finished IPA
+      uses: actions/artifacts@v4
+      with:
+        name: ios-build-ipa
+        path: |
+          **/*.ipa
+          **/*.xcarchive
