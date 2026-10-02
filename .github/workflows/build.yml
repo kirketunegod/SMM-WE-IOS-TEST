@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    runs-on: macos-14 # Sticking to Intel macOS to avoid long M1/M2 queue times
+    runs-on: macos-15 # Updated to the latest stable macOS environment
 
     steps:
     - name: Checkout Source Code
@@ -16,13 +16,12 @@ jobs:
     - name: Set up GameMaker Igor Compiler
       uses: bscotch/igor-setup@v1
       with:
-        # Installs the stable standalone GameMaker build tools
-        version: '2024.6.1.208' 
+        # We target your specific yyp file so it fetches the correct runtime version automatically
+        target-yyp: 'SMM_WE.yyp' 
 
     - name: Compile iOS Project
       uses: bscotch/igor-build@v1
       with:
-        # !!! REPLACE THIS WITH YOUR EXACT FILE NAME !!!
         project-path: 'SMM_WE.yyp'
         target: 'ios'
         command: 'package'
@@ -34,3 +33,4 @@ jobs:
         path: |
           **/*.ipa
           **/*.xcarchive
+
