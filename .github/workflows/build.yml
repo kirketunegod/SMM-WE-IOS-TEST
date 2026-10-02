@@ -15,10 +15,7 @@ jobs:
 
     - name: Configurar Credenciales de GameMaker
       run: |
-        # Creamos la carpeta de configuración oficial de GameMaker en el Mac virtual
         mkdir -p ~/.config/GameMakerStudio2
-        
-        # Generamos el archivo de configuración con tus secretos de GitHub
         echo '{
           "login": "${{ secrets.GM_USERNAME }}",
           "password": "${{ secrets.GM_PASSWORD }}",
@@ -27,13 +24,12 @@ jobs:
 
     - name: Descargar e Instalar GameMaker
       run: |
-        # Descargamos el instalador oficial estable de GameMaker para Mac
+        # Usamos la URL directa del paquete de instalación oficial para Mac
         curl -L -o GameMaker.pkg "https://gamemaker.io"
         sudo installer -pkg GameMaker.pkg -target /
 
     - name: Compilar Proyecto iOS con Xcode
       run: |
-        # Ejecutamos Igor (el compilador de GameMaker) directamente usando tu archivo de configuración
         /Applications/GameMaker.app/Contents/MacOS/Igor \
         --uf ~/.config/GameMakerStudio2 \
         --project "${{ github.workspace }}/SMM_WE.yyp" \
@@ -49,4 +45,3 @@ jobs:
         path: |
           **/*.ipa
           **/*.xcarchive
-
