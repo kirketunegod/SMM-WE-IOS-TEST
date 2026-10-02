@@ -15,7 +15,6 @@ jobs:
 
     - name: Configurar Credenciales de GameMaker
       run: |
-        # Creamos la carpeta de preferencias del sistema para meter tus datos de inicio de sesión
         mkdir -p ~/.config/GameMakerStudio2
         echo '{
           "login": "${{ secrets.GM_USERNAME }}",
@@ -25,13 +24,12 @@ jobs:
 
     - name: Instalar GameMaker Oficial vía Homebrew
       run: |
-        # Homebrew es el gestor de paquetes oficial de Mac. Descarga la versión completa estable directamente.
         brew install --cask gamemaker
 
     - name: Compilar Proyecto iOS con Xcode
       run: |
-        # Buscamos el ejecutable Igor dentro de la app oficial ya instalada
-        /Applications/GameMaker.app/Contents/MacOS/Igor \
+        # Usamos la ruta moderna del ejecutable Igor en las versiones actuales de Mac
+        /Applications/GameMaker.app/Contents/Frameworks/Igor.framework/Versions/Current/Helpers/Igor \
         --uf ~/.config/GameMakerStudio2 \
         --project "${{ github.workspace }}/SMM_WE.yyp" \
         --config "Default" \
