@@ -7,25 +7,25 @@ on:
 
 jobs:
   build:
-    runs-on: macos-14 # Uses an Intel-based Mac runner to bypass ARM64 queue wait times
+    runs-on: macos-14 # Sticking to Intel macOS to avoid long M1/M2 queue times
 
     steps:
     - name: Checkout Source Code
       uses: actions/checkout@v4
 
-    - name: Download and Install GameMaker
-      run: |
-        curl -L -o GameMaker.pkg "https://gamemaker.io"
-        sudo installer -pkg GameMaker.pkg -target /
+    - name: Set up GameMaker Igor Compiler
+      uses: bscotch/igor-setup@v1
+      with:
+        # Installs the stable standalone GameMaker build tools
+        version: '2024.6.1.208' 
 
     - name: Compile iOS Project
-      run: |
-        # Change YOUR_PROJECT_NAME.yyp to your actual file name
-        /Applications/GameMaker.app/Contents/MacOS/Igor \
-        --project "${{ github.workspace }}/SMM_WE.yyp" \
-        --config "Default" \
-        --platform "iOS" \
-        --Package
+      uses: bscotch/igor-build@v1
+      with:
+        # !!! REPLACE THIS WITH YOUR EXACT FILE NAME !!!
+        project-path: 'SMM_WE.yyp'
+        target: 'ios'
+        command: 'package'
 
     - name: Upload Finished IPA
       uses: actions/upload-artifact@v4
