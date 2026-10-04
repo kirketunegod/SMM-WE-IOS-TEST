@@ -14,14 +14,18 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # 2. Configurar Igor (Limpiado de inputs inválidos)
+      # 2. Configurar Igor (Forzando la autenticación de la sesión vía variables de entorno)
       - name: Setup Igor Environment
         uses: bscotch/igor-setup@v1
         with:
           target-yyp: "SMM_WE.yyp"
           access-key: ${{ secrets.GM_ACCESS_KEY }}
+        env:
+          # Estas variables de entorno obligan al instalador a validar tu cuenta y evitar el error 403
+          USER: ${{ secrets.GM_USERNAME }}
+          PASSWORD: ${{ secrets.GM_PASSWORD }}
 
-      # 3. Exportar el proyecto pasando las credenciales completas
+      # 3. Exportar el proyecto a un proyecto nativo de Xcode
       - name: Build Xcode Project via Igor
         uses: bscotch/igor-build@v1
         with:
@@ -30,7 +34,7 @@ jobs:
           username: ${{ secrets.GM_USERNAME }}
           password: ${{ secrets.GM_PASSWORD }}
 
-      # 4. Compilar y archivar el proyecto Xcode forzando la desactivación de firmas
+      # 4. Compilar y archivar el proyecto Xcode desactivando firmas obligatorias
       - name: Archive Xcode Project (Unsigned)
         run: |
           xcodebuild archive \
