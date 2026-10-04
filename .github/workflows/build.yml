@@ -1,73 +1,87 @@
-name: Build iOS IPA
+name: Build GameMaker iOS Game
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
-  build:
-    runs-on: macos-14
+  build-ios:
+    runs-on: macos-latest
 
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
+      # 1. Clonar el repositorio
+      - name: Checkout Code
+        uses: actions/checkout@v4
 
-    - name: Check access key secret
-      env:
-        KEY: ${{ secrets.GM_ACCESS_KEY }}
-      run: |
-        echo "access key length: ${#KEY}"
-        if [ -z "$KEY" ]; then echo "GM_ACCESS_KEY is empty or missing"; exit 1; fi
+      # 2. Configurar el compilador oficial de GameMaker (Igor)
+      - name: Setup Igor Environment
+        uses: shichen85/igor-setup@v1
+        with:
+          access-key: ${{ secrets.GM_ACCESS_KEY }}
 
-    - name: Set up Igor and GameMaker runtime
-      id: setup
-      uses: bscotch/igor-setup@v2
-      with:
-        access-key: ${{ secrets.GM_ACCESS_KEY }}
-        target-yyp: SMM_WE.yyp
+      # 3. Exportar el proyecto GameMaker a un proyecto nativo de Xcode
+      - name: Build Xcode Project via Igor
+        uses: shichen85/igor-build@v1
+        with:
+          project-path: "SMM_WE.yyp"
+          target: "ios"
+          # Agregamos las credenciales si Igor necesita autenticar la sesión
+          username: ${{ secrets.GM_USERNAME }}
+          password: ${{ secrets.GM_PASSWORD }}
 
-    - name: Export Xcode project from GameMaker
-      id: build
-      uses: bscotch/igor-build@v1
-      with:
-        user-dir: ${{ steps.setup.outputs.user-dir }}
-        yyp-path: SMM_WE.yyp
-        platform: ios
-        config: Default
-        save-logs: 'true'
+      # 4. Instalar Certificados de Apple y Perfil de Provisión en el Runner
+      - name: Install Apple Certificate and Provisioning Profile
+        env:
+          BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
+          P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
+          PROVISIONING_PROFILE_BASE64: ${{ secrets.PROVISIONING_PROFILE_BASE64 }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          CERTIFICATE_PATH=$RUNNER_TEMP/build_certificate.p12
+          PP_PATH=$RUNNER_TEMP/build_pp.mobileprovision
+          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
 
-    - name: Build unsigned app with xcodebuild
-      run: |
-        XCPROJ=$(find "${{ steps.build.outputs.out-dir }}" -name "*.xcodeproj" -maxdepth 3 | head -n 1)
-        echo "Xcode project: $XCPROJ"
-        xcodebuild -list -project "$XCPROJ"
-        SCHEME=$(xcodebuild -list -json -project "$XCPROJ" | python3 -c "import sys,json; print(json.load(sys.stdin)['project']['schemes'][0])")
-        echo "Scheme: $SCHEME"
+          # Decodificar certificados
+          echo -n "$BUILD_CERTIFICATE_BASE64" | base64 --decode -o $CERTIFICATE_PATH
+          echo -n "$PROVISIONING_PROFILE_BASE64" | base64 --decode -o $PP_PATH
 
-        xcodebuild -project "$XCPROJ" \
-          -scheme "$SCHEME" \
-          -configuration Release \
-          -sdk iphoneos \
-          -derivedDataPath "$RUNNER_TEMP/dd" \
-          CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
-          build
+          # Crear llavero temporal
+          security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security default-keychain -s $KEYCHAIN_PATH
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
 
-        APP=$(find "$RUNNER_TEMP/dd/Build/Products" -name "*.app" -maxdepth 3 | head -n 1)
-        mkdir -p "$GITHUB_WORKSPACE/out/Payload"
-        cp -R "$APP" "$GITHUB_WORKSPACE/out/Payload/"
-        cd "$GITHUB_WORKSPACE/out" && zip -qr game-unsigned.ipa Payload
+          # Importar certificado
+          security import $CERTIFICATE_PATH -k $KEYCHAIN_PATH -P "$P12_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
 
-    - name: Upload IPA
-      uses: actions/upload-artifact@v4
-      with:
-        name: ios-build-ipa
-        path: out/*.ipa
+          # Instalar perfil de provisión
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          cp $PP_PATH ~/Library/MobileDevice/Provisioning\ Profiles/
 
-    - name: Upload Igor logs
-      if: always() && steps.build.outputs.log-dir != ''
-      uses: actions/upload-artifact@v4
-      with:
-        name: igor-logs
-        path: ${{ steps.build.outputs.log-dir }}
-        if-no-files-found: ignore
+      # 5. Compilar y archivar el proyecto Xcode generado por Igor
+      # Nota: El nombre del esquema y del proyecto Xcode por defecto coincide con tu archivo .yyp (SMM_WE)
+      - name: Archive Xcode Project
+        run: |
+          xcodebuild archive \
+            -project "build/ios/SMM_WE.xcodeproj" \
+            -scheme "SMM_WE" \
+            -archivePath $RUNNER_TEMP/SMM_WE.xcarchive \
+            -allowProvisioningUpdates
+
+      # 6. Exportar el archivo final (.ipa) firmado
+      - name: Export IPA File
+        run: |
+          xcodebuild -exportArchive \
+            -archivePath $RUNNER_TEMP/SMM_WE.xcarchive \
+            -exportOptionsPlist .github/workflows/ios/ExportOptions.plist \
+            -exportPath $RUNNER_TEMP/build_output \
+            -allowProvisioningUpdates
+
+      # 7. Guardar el archivo .ipa en los artefactos de la ejecución
+      - name: Upload Finished Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SMM_WE-iOS-Build
+          path: ${{ runner.temp }}/build_output/*.ipa
