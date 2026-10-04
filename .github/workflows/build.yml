@@ -1,4 +1,4 @@
-name: Build GameMaker iOS Game
+name: Build GameMaker iOS Game (.ipa)
 
 on:
   push:
@@ -14,72 +14,44 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # 2. Configurar el compilador oficial de GameMaker (Igor)
+      # 2. Configurar el compilador oficial de GameMaker usando bscotch (Corregido)
       - name: Setup Igor Environment
-        uses: shichen85/igor-setup@v1
+        uses: bscotch/igor-setup@v1
         with:
           access-key: ${{ secrets.GM_ACCESS_KEY }}
 
-      # 3. Exportar el proyecto GameMaker a un proyecto nativo de Xcode
+      # 3. Exportar el proyecto a un proyecto nativo de Xcode usando bscotch (Corregido)
       - name: Build Xcode Project via Igor
-        uses: shichen85/igor-build@v1
+        uses: bscotch/igor-build@v1
         with:
           project-path: "SMM_WE.yyp"
           target: "ios"
-          # Agregamos las credenciales si Igor necesita autenticar la sesión
           username: ${{ secrets.GM_USERNAME }}
           password: ${{ secrets.GM_PASSWORD }}
 
-      # 4. Instalar Certificados de Apple y Perfil de Provisión en el Runner
-      - name: Install Apple Certificate and Provisioning Profile
-        env:
-          BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
-          P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
-          PROVISIONING_PROFILE_BASE64: ${{ secrets.PROVISIONING_PROFILE_BASE64 }}
-          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
-        run: |
-          CERTIFICATE_PATH=$RUNNER_TEMP/build_certificate.p12
-          PP_PATH=$RUNNER_TEMP/build_pp.mobileprovision
-          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
-
-          # Decodificar certificados
-          echo -n "$BUILD_CERTIFICATE_BASE64" | base64 --decode -o $CERTIFICATE_PATH
-          echo -n "$PROVISIONING_PROFILE_BASE64" | base64 --decode -o $PP_PATH
-
-          # Crear llavero temporal
-          security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
-          security default-keychain -s $KEYCHAIN_PATH
-          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
-          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
-
-          # Importar certificado
-          security import $CERTIFICATE_PATH -k $KEYCHAIN_PATH -P "$P12_PASSWORD" -T /usr/bin/codesign
-          security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
-
-          # Instalar perfil de provisión
-          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-          cp $PP_PATH ~/Library/MobileDevice/Provisioning\ Profiles/
-
-      # 5. Compilar y archivar el proyecto Xcode generado por Igor
-      # Nota: El nombre del esquema y del proyecto Xcode por defecto coincide con tu archivo .yyp (SMM_WE)
-      - name: Archive Xcode Project
+      # 4. Compilar y archivar el proyecto Xcode forzando la desactivación de firmas
+      - name: Archive Xcode Project (Unsigned)
         run: |
           xcodebuild archive \
             -project "build/ios/SMM_WE.xcodeproj" \
             -scheme "SMM_WE" \
             -archivePath $RUNNER_TEMP/SMM_WE.xcarchive \
-            -allowProvisioningUpdates
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_IDENTITY="" \
+            PROVISIONING_PROFILE_SPECIFIER=""
 
-      # 6. Exportar el archivo final (.ipa) firmado
+      # 5. Exportar el archivo final (.ipa)
       - name: Export IPA File
         run: |
           xcodebuild -exportArchive \
             -archivePath $RUNNER_TEMP/SMM_WE.xcarchive \
             -exportOptionsPlist .github/workflows/ios/ExportOptions.plist \
             -exportPath $RUNNER_TEMP/build_output \
-            -allowProvisioningUpdates
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO
 
-      # 7. Guardar el archivo .ipa en los artefactos de la ejecución
+      # 6. Guardar y descargar el archivo .ipa desde la pestaña Actions de GitHub
       - name: Upload Finished Artifact
         uses: actions/upload-artifact@v4
         with:
