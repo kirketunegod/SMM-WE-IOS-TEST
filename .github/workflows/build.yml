@@ -15,12 +15,14 @@ jobs:
         uses: actions/checkout@v4
 
       # 2. Configurar el compilador de GameMaker (Igor)
-      # Se añade 'target-yyp' para que detecte automáticamente la versión del runtime
+      # Se agregan username y password aquí también para evitar el error 403
       - name: Setup Igor Environment
         uses: bscotch/igor-setup@v1
         with:
           target-yyp: "SMM_WE.yyp"
           access-key: ${{ secrets.GM_ACCESS_KEY }}
+          username: ${{ secrets.GM_USERNAME }}
+          password: ${{ secrets.GM_PASSWORD }}
 
       # 3. Exportar el proyecto a un proyecto nativo de Xcode
       - name: Build Xcode Project via Igor
