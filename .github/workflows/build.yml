@@ -25,7 +25,7 @@ jobs:
       uses: bscotch/igor-setup@v2
       with:
         access-key: ${{ secrets.GM_ACCESS_KEY }}
-        runtime-version: REPLACE_WITH_YOUR_RUNTIME_VERSION
+        runtime-version: 2023.11.1.129
         modules: ios
 
     - name: Export Xcode project from GameMaker
