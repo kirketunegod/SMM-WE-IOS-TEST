@@ -22,10 +22,11 @@ jobs:
 
     - name: Set up Igor and GameMaker runtime
       id: setup
-      uses: bscotch/igor-setup@v1
+      uses: bscotch/igor-setup@v2
       with:
         access-key: ${{ secrets.GM_ACCESS_KEY }}
-        target-yyp: SMM_WE.yyp
+        runtime-version: REPLACE_WITH_YOUR_RUNTIME_VERSION
+        modules: ios
 
     - name: Export Xcode project from GameMaker
       id: build
